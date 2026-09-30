@@ -1,0 +1,508 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Mini Militia: 2D Doodle Arena</title>
+    <meta name="description" content="Fast-paced 2D multiplayer-style shooter inspired by Mini Militia: Classic and Doodle Army 2 featuring jetpacks, procedural doodle soldiers, bot AI, ragdoll physics, and explosive weapons." />
+    <meta property="og:title" content="Mini Militia: 2D Doodle Arena" />
+    <meta property="og:description" content="Fast-paced 2D multiplayer-style shooter inspired by Mini Militia: Classic and Doodle Army 2 featuring jetpacks, procedural doodle soldiers, bot AI, ragdoll physics, and explosive weapons." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+      html, body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #0f172a;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        color: #ffffff;
+      }
+      #canvasContainer {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #0b0f19;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+        cursor: crosshair;
+      }
+
+      /* HUD Layer */
+      #hudLayer {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        overflow: hidden;
+      }
+
+      /* Top Left Player Stats */
+      .player-stats-panel {
+        position: absolute;
+        top: 16px;
+        left: 16px;
+        background: rgba(15, 23, 42, 0.88);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 8px;
+        padding: 12px 16px;
+        backdrop-filter: blur(6px);
+        min-width: 250px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+      }
+      .stat-row {
+        margin-bottom: 8px;
+      }
+      .stat-header {
+        display: flex;
+        justify-content: space-between;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        margin-bottom: 4px;
+      }
+      .stat-bar-bg {
+        width: 100%;
+        height: 10px;
+        background: rgba(0, 0, 0, 0.6);
+        border-radius: 5px;
+        overflow: hidden;
+        border: 1px solid rgba(255,255,255,0.12);
+      }
+      .stat-bar-fill {
+        height: 100%;
+        border-radius: 4px;
+        transition: width 0.1s linear;
+      }
+      .fill-hp {
+        background: linear-gradient(90deg, #ef4444, #22c55e);
+      }
+      .fill-nitro {
+        background: linear-gradient(90deg, #0284c7, #38bdf8);
+      }
+
+      /* Weapon and Ammo Panel */
+      .weapon-panel {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 10px;
+        padding-top: 8px;
+        border-top: 1px solid rgba(255,255,255,0.12);
+      }
+      .weapon-info {
+        display: flex;
+        flex-direction: column;
+      }
+      .weapon-name {
+        font-size: 13px;
+        font-weight: 800;
+        color: #facc15;
+        letter-spacing: 0.5px;
+      }
+      .ammo-count {
+        font-size: 18px;
+        font-weight: 900;
+        font-family: monospace;
+      }
+      .grenade-count {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 14px;
+        font-weight: 800;
+        color: #fb923c;
+      }
+
+      /* Audio & Controls Top Bar Buttons */
+      .top-buttons {
+        position: absolute;
+        top: 16px;
+        left: 282px;
+        display: flex;
+        gap: 8px;
+        pointer-events: auto;
+      }
+      .btn-icon {
+        background: rgba(15, 23, 42, 0.88);
+        border: 1px solid rgba(255,255,255,0.15);
+        border-radius: 6px;
+        color: white;
+        padding: 8px 12px;
+        font-size: 12px;
+        font-weight: bold;
+        cursor: pointer;
+        backdrop-filter: blur(4px);
+        transition: background 0.15s;
+      }
+      .btn-icon:hover {
+        background: rgba(30, 41, 59, 0.95);
+      }
+
+      /* Killfeed */
+      #killfeed {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        align-items: flex-end;
+      }
+      .kill-item {
+        background: rgba(15, 23, 42, 0.85);
+        border-left: 3px solid #ef4444;
+        padding: 6px 12px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 600;
+        color: #f1f5f9;
+        animation: fadeSlide 0.25s ease-out;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      }
+      @keyframes fadeSlide {
+        from { opacity: 0; transform: translateX(20px); }
+        to { opacity: 1; transform: translateX(0); }
+      }
+
+      /* Top Center Scoreboard / Timer */
+      .top-match-panel {
+        position: absolute;
+        top: 16px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(15, 23, 42, 0.88);
+        border: 1px solid rgba(255,255,255,0.15);
+        border-radius: 20px;
+        padding: 6px 20px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        font-size: 13px;
+        font-weight: 700;
+        backdrop-filter: blur(4px);
+        box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+      }
+      .score-pill {
+        color: #4ade80;
+      }
+
+      /* Controls Help Bar */
+      .controls-bar {
+        position: absolute;
+        bottom: 12px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 11px;
+        color: rgba(255,255,255,0.7);
+        background: rgba(0,0,0,0.55);
+        padding: 5px 14px;
+        border-radius: 12px;
+        white-space: nowrap;
+        pointer-events: none;
+      }
+
+      /* Respawn & Death Overlay */
+      #respawnOverlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(15, 5, 5, 0.75);
+        backdrop-filter: blur(4px);
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        pointer-events: auto;
+      }
+      .death-title {
+        font-size: 40px;
+        font-weight: 900;
+        color: #ef4444;
+        text-shadow: 0 0 24px rgba(239,68,68,0.7);
+        margin-bottom: 8px;
+        letter-spacing: 2px;
+      }
+      .death-sub {
+        font-size: 16px;
+        color: #e2e8f0;
+        margin-bottom: 16px;
+      }
+      .respawn-timer-box {
+        font-size: 54px;
+        font-weight: 900;
+        color: #facc15;
+        font-family: monospace;
+      }
+
+      /* Pause / Menu Overlay */
+      #menuOverlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(10, 15, 26, 0.94);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        pointer-events: auto;
+        z-index: 100;
+      }
+      .menu-card {
+        background: #1e293b;
+        border: 1px solid rgba(255,255,255,0.15);
+        border-radius: 16px;
+        padding: 32px 40px;
+        max-width: 520px;
+        width: 90%;
+        text-align: center;
+        box-shadow: 0 20px 48px rgba(0,0,0,0.8);
+      }
+      .game-title {
+        font-size: 34px;
+        font-weight: 900;
+        letter-spacing: 1px;
+        color: #facc15;
+        margin-bottom: 4px;
+        text-shadow: 0 3px 0 #854d0e;
+      }
+      .game-subtitle {
+        font-size: 13px;
+        color: #94a3b8;
+        margin-bottom: 20px;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+      }
+      .btn {
+        background: #2563eb;
+        color: #ffffff;
+        border: none;
+        border-radius: 8px;
+        padding: 12px 30px;
+        font-size: 16px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: transform 0.1s, background 0.15s;
+        box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
+        display: inline-block;
+        margin: 6px;
+      }
+      .btn:hover {
+        background: #1d4ed8;
+        transform: translateY(-2px);
+      }
+      .btn:active {
+        transform: translateY(0);
+      }
+      .btn-secondary {
+        background: #334155;
+        box-shadow: none;
+      }
+      .btn-secondary:hover {
+        background: #475569;
+      }
+      .controls-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        text-align: left;
+        margin: 18px 0;
+        font-size: 12px;
+        background: rgba(0,0,0,0.3);
+        padding: 14px;
+        border-radius: 8px;
+      }
+      .controls-grid b {
+        color: #38bdf8;
+      }
+
+      /* Leaderboard Modal (Tab) */
+      #leaderboardModal {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(15, 23, 42, 0.96);
+        border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 12px;
+        padding: 22px;
+        min-width: 340px;
+        display: none;
+        z-index: 50;
+        box-shadow: 0 16px 36px rgba(0,0,0,0.6);
+      }
+      .lb-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+        margin-top: 10px;
+      }
+      .lb-table th {
+        text-align: left;
+        color: #94a3b8;
+        padding-bottom: 8px;
+        border-bottom: 1px solid rgba(255,255,255,0.12);
+      }
+      .lb-table td {
+        padding: 7px 0;
+      }
+
+      /* Mobile Touch Action Controls (Touch Only) */
+      #touchControls {
+        position: absolute;
+        bottom: 24px;
+        right: 24px;
+        display: none;
+        gap: 12px;
+        pointer-events: auto;
+      }
+      .touch-btn {
+        width: 58px;
+        height: 58px;
+        border-radius: 50%;
+        background: rgba(30, 41, 59, 0.85);
+        border: 2px solid rgba(255,255,255,0.25);
+        color: white;
+        font-size: 20px;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        touch-action: none;
+      }
+      .touch-btn:active {
+        background: rgba(56, 189, 248, 0.6);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="canvasContainer">
+      <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <!-- HUD Overlay -->
+    <div id="hudLayer">
+      <div class="player-stats-panel">
+        <div class="stat-row">
+          <div class="stat-header">
+            <span>Health</span>
+            <span id="hpText">100 / 100</span>
+          </div>
+          <div class="stat-bar-bg">
+            <div id="hpFill" class="stat-bar-fill fill-hp" style="width: 100%;"></div>
+          </div>
+        </div>
+        <div class="stat-row">
+          <div class="stat-header">
+            <span>Jetpack Nitro</span>
+            <span id="nitroText">100%</span>
+          </div>
+          <div class="stat-bar-bg">
+            <div id="nitroFill" class="stat-bar-fill fill-nitro" style="width: 100%;"></div>
+          </div>
+        </div>
+        <div class="weapon-panel">
+          <div class="weapon-info">
+            <span id="weaponName" class="weapon-name">ASSAULT RIFLE</span>
+            <span id="ammoCount" class="ammo-count">30 / ∞</span>
+          </div>
+          <div class="grenade-count">
+            <span>💣 <span id="grenadeNum">3</span></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="top-buttons">
+        <button id="audioToggleBtn" class="btn-icon">🔊 SOUND ON</button>
+        <button id="menuBtn" class="btn-icon">⚙️ MENU</button>
+      </div>
+
+      <div class="top-match-panel">
+        <span class="score-pill">KILLS: <span id="playerKills">0</span></span>
+        <span>·</span>
+        <span>DEATHS: <span id="playerDeaths">0</span></span>
+        <span>·</span>
+        <span style="color:#facc15;">SCORE: <span id="playerScore">0</span></span>
+      </div>
+
+      <div id="killfeed"></div>
+
+      <div class="controls-bar">
+        [A/D] Move · [W/Space/R-Click] Jetpack · [Mouse] Aim & Shoot · [S] Crouch · [R] Reload · [G] Grenade · [Tab] Scores
+      </div>
+
+      <!-- Touch Buttons for Mobile/Tablet Support -->
+      <div id="touchControls">
+        <button id="btnTouchBoost" class="touch-btn">🚀</button>
+        <button id="btnTouchShoot" class="touch-btn" style="border-color:#ef4444;">🔥</button>
+        <button id="btnTouchGrenade" class="touch-btn">💣</button>
+        <button id="btnTouchReload" class="touch-btn">🔄</button>
+      </div>
+    </div>
+
+    <!-- Respawn Overlay -->
+    <div id="respawnOverlay">
+      <div class="death-title">YOU DIED</div>
+      <div id="deathKillerText" class="death-sub">Eliminated in combat</div>
+      <div class="death-sub">Respawning in:</div>
+      <div id="respawnCountdown" class="respawn-timer-box">3</div>
+    </div>
+
+    <!-- Leaderboard Modal -->
+    <div id="leaderboardModal">
+      <h3 style="font-size:16px; font-weight:800; color:#38bdf8; text-transform:uppercase;">Combat Leaderboard</h3>
+      <table class="lb-table">
+        <thead>
+          <tr>
+            <th>Soldier</th>
+            <th>Kills</th>
+            <th>Deaths</th>
+            <th>Score</th>
+          </tr>
+        </thead>
+        <tbody id="lbRows"></tbody>
+      </table>
+    </div>
+
+    <!-- Main Menu / Pause Overlay -->
+    <div id="menuOverlay">
+      <div class="menu-card">
+        <h1 class="game-title">MINI MILITIA</h1>
+        <div class="game-subtitle">2D Doodle Army Arena</div>
+
+        <p style="font-size: 13px; color: #cbd5e1; margin-bottom: 16px; line-height: 1.5;">
+          Fly with your jetpack, grab heavy weapons, throw fragmentation grenades, and take down rival doodle soldiers across floating warzones!
+        </p>
+
+        <div class="controls-grid">
+          <div><b>A / D:</b> Move Horizontal</div>
+          <div><b>W / Space:</b> Jetpack Boost</div>
+          <div><b>Right-Click:</b> Aim Thrust / Fly</div>
+          <div><b>Left-Click:</b> Fire Weapon</div>
+          <div><b>S:</b> Crouch Behind Cover</div>
+          <div><b>R:</b> Reload Magazine</div>
+          <div><b>G:</b> Frag Grenade</div>
+          <div><b>Tab:</b> Leaderboard</div>
+        </div>
+
+        <div>
+          <button id="startBtn" class="btn">DEPLOY SOLDIER</button>
+          <button id="resumeBtn" class="btn btn-secondary" style="display:none;">RESUME MATCH</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Self-Contained Vanilla JS Game Engine -->
+    <script src="game.js"></script>
+  </body>
+</html>

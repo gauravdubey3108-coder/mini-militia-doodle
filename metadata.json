@@ -1,0 +1,6 @@
+{
+  "name": "Mini Militia: 2D Doodle Arena",
+  "description": "Fast-paced 2D multiplayer-style shooter inspired by Mini Militia: Classic and Doodle Army 2 featuring jetpacks, procedural doodle soldiers, bot AI, ragdoll physics, and explosive weapons.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
